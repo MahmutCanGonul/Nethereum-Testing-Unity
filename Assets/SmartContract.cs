@@ -8,6 +8,7 @@ using System.Numerics;
 using Nethereum.JsonRpc.UnityClient;
 using Nethereum.Web3;
 using Nethereum.Util;
+using System;
 
 public class SmartContract : MonoBehaviour
 {
@@ -47,7 +48,7 @@ public class SmartContract : MonoBehaviour
 
         public string TokenSymbol { get; set; }
 
-        
+
     }
 
 
@@ -65,7 +66,7 @@ public class SmartContract : MonoBehaviour
 
     public partial class TransferFunction : TransferFunctionBase
     {
-      
+
     }
 
     [Function("balanceOf", "uint256")]
@@ -108,11 +109,26 @@ public class SmartContract : MonoBehaviour
 
     void Start()
     {
+
         web3 = new Web3(TestNethereum.url);
-        //StartCoroutine(TokenTransfer("OWNER_ADDRESS", "OWNER_PRIVATE_KEY", "RECEIVER_ADDRESS",
-        //    10, 0, "CONTRACT_ADDRESS"));
-        StartCoroutine(DeployContract("0x3a2cF9b278854dB8fbdE18BDEaa6b4E7d4441c7e", "06f3e63691609ea25e027fc2f534e80a6ad5d406bfb1c9af7ae4dafabdd1c68d",
-            "MahmutToken", "MT", 100000, 0));
+
+        //StartCoroutine(TokenTransfer("0x3a2cF9b278854dB8fbdE18BDEaa6b4E7d4441c7e", "06f3e63691609ea25e027fc2f534e80a6ad5d406bfb1c9af7ae4dafabdd1c68d", "0x546206872043462B42e7332170E6Bf6c44cC20ee",
+        //    900, 0, "0xE54a9FE439BdcE2caF60Ed968DB200479FB6fb6b"));
+
+        //StartCoroutine(DeployContract("0x3a2cF9b278854dB8fbdE18BDEaa6b4E7d4441c7e", "06f3e63691609ea25e027fc2f534e80a6ad5d406bfb1c9af7ae4dafabdd1c68d",
+        //    "CasperToken", "CT", 100000, 0, 10));
+
+        //GetTransactionInfo("0x0bca8fa4166d7c936773131480034db94ef084a8aee9564e0e39af292d924295");
+
+        //GetLastTransactionInfo();
+
+        //SmartContractInfo("0x496299d8497a02b01f5bc355298b0a831f06c522");
+
+        StartCoroutine(CheckEveryFiveSecondsBlockNumberAndTransactionNumber());
+
+
+
+
     }
 
     // Update is called once per frame
@@ -122,7 +138,7 @@ public class SmartContract : MonoBehaviour
     }
 
 
-    private IEnumerator DeployContract(string ownerAddress, string ownerPrivateKey, string tokenName, string tokenSymbol, BigInteger balanceToken, BigInteger ether)
+    private IEnumerator DeployContract(string ownerAddress, string ownerPrivateKey, string tokenName, string tokenSymbol, BigInteger balanceToken, BigInteger ether,BigInteger tip)
     {
         if (ownerAddress != Web3.GetAddressFromPrivateKey(ownerPrivateKey))
         {
@@ -132,15 +148,14 @@ public class SmartContract : MonoBehaviour
 
         var chainId = web3.Eth.ChainId.SendRequestAsync();
         var gasPrice = web3.Eth.GasPrice.SendRequestAsync();
-        
+        var gas = web3.TransactionManager.DefaultGas;
+        Debug.Log(gasPrice.Result.Value);
 
         var transactionRequest = new TransactionSignedUnityRequest(TestNethereum.url, ownerPrivateKey, chainId.Result.Value);
         transactionRequest.EstimateGas = true;
         transactionRequest.UseLegacyAsDefault = true;
         //transactionRequest.Result = Web3.GetAddressFromPrivateKey(ownerPrivateKey);
-       
-        Debug.Log(Web3.Convert.ToWei(ether, UnitConversion.EthUnit.Ether));
-        var gas = 3000000;
+        //Debug.Log(Web3.Convert.ToWei(ether, UnitConversion.EthUnit.Ether));
 
         var deployContract = new EIP20Deployment()
         {
@@ -149,27 +164,35 @@ public class SmartContract : MonoBehaviour
             TokenName = tokenName,
             TokenSymbol = tokenSymbol,
             AmountToSend = Web3.Convert.ToWei(ether, UnitConversion.EthUnit.Ether),
-            GasPrice = gasPrice.Result.Value,
-            Gas = gas
+            GasPrice = gasPrice.Result.Value
+            //Gas = gas
+            //MaxFeePerGas = gas * (gasPrice.Result.Value+tip),
+            //MaxPriorityFeePerGas = tip
 
         };
         //Let's deploy contract
-        
+
         yield return transactionRequest.SignAndSendDeploymentContractTransaction<EIP20DeploymentBase>(deployContract);
-        
-     
-        var blockNumber = web3.Eth.Blocks.GetBlockNumber.SendRequestAsync();
-        Debug.Log(blockNumber.Result.Value);
-        var lastBlock = web3.Eth.Blocks.GetBlockWithTransactionsHashesByNumber.SendRequestAsync(blockNumber.Result);
-        var transactionHash = lastBlock.Result.TransactionHashes[lastBlock.Result.TransactionHashes.Length - 1];
-        Debug.Log(transactionHash);
-        
+
+        if (TestNethereum.url.Equals("HTTP://127.0.0.1:7545"))
+        {
+            var blockNumber = web3.Eth.Blocks.GetBlockNumber.SendRequestAsync();
+            Debug.Log(blockNumber.Result.Value);
+            var lastBlock = web3.Eth.Blocks.GetBlockWithTransactionsHashesByNumber.SendRequestAsync(blockNumber.Result);
+            var transactionHash = lastBlock.Result.TransactionHashes[lastBlock.Result.TransactionHashes.Length - 1];
+            Debug.Log(transactionHash);
+            transactionRequest.Result = transactionHash;
+        }
+
+
+
         if (transactionRequest.Exception != null)
         {
             Debug.Log(transactionRequest.Exception.Message);
-            //yield break;
+            if (!TestNethereum.url.Equals("HTTP://127.0.0.1:7545"))
+                yield break;
         }
-        transactionRequest.Result = transactionHash;
+
 
         Debug.Log("Success! Token is publeshed. Hash is: " + transactionRequest.Result);
         Debug.Log("Contract Byte Code: " + deployContract.ByteCode);
@@ -192,33 +215,33 @@ public class SmartContract : MonoBehaviour
 
 
         var queryRequest = new QueryUnityRequest<BalanceOfFunction, BalanceOfFunctionOutput>(TestNethereum.url, ownerAddress);
-        yield return queryRequest.Query(new BalanceOfFunction() { Owner = ownerAddress}, deploymentReceipt.ContractAddress);
-      
+        yield return queryRequest.Query(new BalanceOfFunction() { Owner = ownerAddress }, deploymentReceipt.ContractAddress);
+
         if (queryRequest.Exception != null)
         {
             Debug.Log(queryRequest.Exception.Message);
             yield break;
         }
-         
+
 
         var dtoResult = queryRequest.Result.Balance;
         Debug.Log("Smart Contract Token Balance: " + dtoResult);
 
 
-        //This function use for ERC-20 tokens 
+        //This function use for ERC-20 tokens transfer
         //StartCoroutine(TokenTransfer(ownerAddress, ownerPrivateKey, "0x546206872043462B42e7332170E6Bf6c44cC20ee",
-        //    10, 2, deploymentReceipt.ContractAddress));
+        //    10, 2, 10, deploymentReceipt.ContractAddress));
 
     }
 
 
-    private IEnumerator TokenTransfer(string fromAddress, string fromPrivateKey, string toAddress, BigInteger token,BigInteger ether,
-        string contractAddress)
+    private IEnumerator TokenTransfer(string fromAddress, string fromPrivateKey, string toAddress, BigInteger token, BigInteger ether,
+        BigInteger tip,string contractAddress)
     {
         var transactionTransferRequest = new TransactionSignedUnityRequest(TestNethereum.url, fromPrivateKey);
         var gasPrice = web3.Eth.GasPrice.SendRequestAsync();
-        var gas = 3000000;
-       
+        var gas = web3.TransactionManager.DefaultGas;
+
 
         var transactionMessage = new TransferFunction
         {
@@ -226,8 +249,10 @@ public class SmartContract : MonoBehaviour
             To = toAddress,
             Value = token,
             AmountToSend = Web3.Convert.ToWei(ether, UnitConversion.EthUnit.Ether),
-            GasPrice = gasPrice.Result.Value,
-            Gas = gas
+            GasPrice = gasPrice.Result.Value
+            //Gas = gas,
+            //MaxFeePerGas = gas * (gasPrice.Result.Value+tip),
+            //MaxPriorityFeePerGas = tip
         };
 
         yield return transactionTransferRequest.SignAndSendTransaction(transactionMessage, contractAddress);
@@ -252,22 +277,130 @@ public class SmartContract : MonoBehaviour
         var transferReceipt = transactionReceiptPollingRequest.Result;
 
         var tokenRequest = web3.Eth.GetContract<EIP20DeploymentBase>(contractAddress);
-        
-     
+
+
         var balance = tokenRequest.Eth.GetBalance.SendRequestAsync(fromAddress);
-        if(balance.Exception != null)
+        if (balance.Exception != null)
         {
             Debug.Log(balance.Exception.Message);
         }
         else
         {
-            Debug.Log(balance.Result.Value +" ");
+            Debug.Log(balance.Result.Value + " ");
         }
 
-        Debug.Log("Transaction Hash: "+transferReceipt.TransactionHash);
+        Debug.Log("Transaction Hash: " + transferReceipt.TransactionHash);
         Debug.Log("Block Hash: " + transferReceipt.BlockHash);
-        Debug.Log("Gas Used: "+transferReceipt.GasUsed);
-        
+        Debug.Log("Gas Used: " + transferReceipt.GasUsed);
+
+    }
+
+
+
+    private void GetTransactionInfo(string transactionHash)
+    {
+        var transaction = web3.Eth.Transactions.GetTransactionByHash.SendRequestAsync(transactionHash);
+        if (transaction.Exception == null)
+        {
+            Debug.Log("Sender Address: " + transaction.Result.From);
+            Debug.Log("Receiver Address: " + transaction.Result.To);
+            Debug.Log("Gas: " + transaction.Result.Gas.Value);
+            Debug.Log("Gas Price: " + transaction.Result.GasPrice.Value);
+            Debug.Log("Block Hash: " + transaction.Result.BlockHash);
+            Debug.Log("Block Number: " + transaction.Result.BlockNumber.Value);
+            Debug.Log("ETH: " + Web3.Convert.FromWei(transaction.Result.Value));
+            Debug.Log("Transaction Index: " + transaction.Result.TransactionIndex);
+        }
+        else
+        {
+            Debug.Log(transaction.Exception.Message);
+        }
+    }
+
+    private void GetLastTransactionInfo()
+    {
+        try
+        {
+            var blockNumber = web3.Eth.Blocks.GetBlockNumber.SendRequestAsync();
+            var lastBlock = web3.Eth.Blocks.GetBlockWithTransactionsByNumber.SendRequestAsync(blockNumber.Result);
+            var lastTransaction = lastBlock.Result.Transactions[lastBlock.Result.Transactions.Length - 1];
+
+            Debug.Log("Sender Address: " + lastTransaction.From);
+            Debug.Log("Receiver Address: " + lastTransaction.To);
+            Debug.Log("Gas: " + lastTransaction.Gas.Value);
+            Debug.Log("Gas Price: " + lastTransaction.GasPrice.Value);
+            Debug.Log("Block Hash: " + lastTransaction.BlockHash);
+            Debug.Log("Block Number: " + lastTransaction.BlockNumber.Value);
+            Debug.Log("ETH: " + Web3.Convert.FromWei(lastTransaction.Value));
+            Debug.Log("Transaction Index: " + lastTransaction.TransactionIndex);
+
+        }
+        catch (Exception ex)
+        {
+            Debug.Log(ex.Message);
+        }
+
+
+    }
+
+
+    private void SmartContractInfo(string contractAddress)
+    {
+        try
+        {
+            var contract = web3.Eth.GetContract<ContractDeploymentMessage>(contractAddress);
+            var accounts = contract.Eth.Accounts.SendRequestAsync();
+            for (int i = 0; i < accounts.Result.Length; i++)
+            {
+                Debug.Log((i + 1) + ". Account: " + accounts.Result[i]);
+            }
+            var blockNumber = contract.Eth.Blocks.GetBlockNumber.SendRequestAsync();
+            var lastBlock = contract.Eth.Blocks.GetBlockWithTransactionsByNumber.SendRequestAsync(blockNumber.Result);
+            var minerBalance = web3.Eth.GetBalance.SendRequestAsync(lastBlock.Result.Miner);
+            Debug.Log("Block Hash: " + lastBlock.Result.BlockHash);
+            Debug.Log("Difficulty: " + lastBlock.Result.Difficulty.Value);
+            Debug.Log("Gas Limit: " + lastBlock.Result.GasLimit);
+            Debug.Log("Gas Used: " + lastBlock.Result.GasUsed);
+            Debug.Log("Base Fee Per Gas: " + lastBlock.Result.BaseFeePerGas.Value);
+            Debug.Log("Miner Address: " + lastBlock.Result.Miner);
+            Debug.Log("Miner Address Balance: " + Web3.Convert.FromWei(minerBalance.Result.Value) + " ETH");
+            Debug.Log("Mining Time: " + lastBlock.Result.Timestamp);
+            Debug.Log("Total Difficulty: " + lastBlock.Result.TotalDifficulty);
+
+            var transactions = lastBlock.Result.Transactions;
+            BigInteger totalTokenBalance = 0;
+
+            for (int i = 0; i < transactions.Length; i++)
+            {
+                totalTokenBalance += transactions[i].Value.Value;
+                
+            }
+            Debug.Log("Token Balance: " + totalTokenBalance);
+            var lastTransaction = transactions[transactions.Length - 1];
+            Debug.Log("Sender Address: "+lastTransaction.From);
+            Debug.Log("Receiver Address: " + lastTransaction.To);
+            Debug.Log("Amount: " + Web3.Convert.FromWei(lastTransaction.Value.Value)+" Token");
+            Debug.Log("Block Hash: " + lastTransaction.BlockHash);
+            Debug.Log("Transaction Hash: " + lastTransaction.TransactionHash);
+
+        }
+        catch (Exception ex)
+        {
+            Debug.Log(ex.Message);
+        }
+
+     
+    }
+
+    private IEnumerator CheckEveryFiveSecondsBlockNumberAndTransactionNumber()
+    {
+        yield return new WaitForSeconds(5f);
+        var blockNumber = web3.Eth.Blocks.GetBlockNumber.SendRequestAsync();
+        var transactionNumber = web3.Eth.Blocks.GetBlockWithTransactionsByNumber.SendRequestAsync(blockNumber.Result);
+        Debug.Log("Ethereum Block Number: "+blockNumber.Result.Value);
+        Debug.Log("Ethereum Transaction Number: "+transactionNumber.Result.Transactions.Length);
+        StartCoroutine(CheckEveryFiveSecondsBlockNumberAndTransactionNumber());
+
     }
 
 }

@@ -10,8 +10,8 @@ public class TestNethereum : MonoBehaviour
 {
     // Start is called before the first frame update
     private Web3 web3;
-    public static string url = "HTTP://127.0.0.1:7545";
-
+    //public static string url = "HTTP://127.0.0.1:7545";
+    public static string url = "https://mainnet.infura.io/v3/f3092718f2f146169c2b1f7d53b99b7a";
     void Start()
     {
 
@@ -20,7 +20,7 @@ public class TestNethereum : MonoBehaviour
         //BigInteger value = GetBalanceFromAddress("0x3a2cF9b278854dB8fbdE18BDEaa6b4E7d4441c7e");
         StartCoroutine(SendEther("0xDaB1d372F6Af58A7dC4ba5Df9BDaa51466E983b5", "8f88e9b01459cc462e0a43238fa1222c5e32d3df886296873f83f195e9def778",
             "0x546206872043462B42e7332170E6Bf6c44cC20ee", 90));
-       
+
     }
 
     private BigInteger GetBalanceFromAddress(string address)
@@ -58,22 +58,22 @@ public class TestNethereum : MonoBehaviour
 
         var transaction = new EthTransferUnityRequest(url, fromPrivateKey, chainId.Result.Value);
         Debug.Log("Sending ETH...");
-        yield return transaction.TransferEther(toAddress, ether,gasPrice);
-        
-        if(transaction.Exception != null)
+        yield return transaction.TransferEther(toAddress, ether, gasPrice);
+
+        if (transaction.Exception != null)
         {
             Debug.Log(transaction.Exception.Message);
             yield break;
         }
         var transactionHash = transaction.Result;
-        Debug.Log("Transaction Success! Transaction Hash: "+transactionHash);
-        
+        Debug.Log("Transaction Success! Transaction Hash: " + transactionHash);
+
         var fromBalance = GetBalanceFromAddress(fromAddress);
         if (fromBalance >= 0)
         {
             decimal fromWeiAmount = Web3.Convert.FromWei(fromBalance);
-            Debug.Log(fromWeiAmount+" ETH");
-             
+            Debug.Log(fromWeiAmount + " ETH");
+
         }
 
     }
