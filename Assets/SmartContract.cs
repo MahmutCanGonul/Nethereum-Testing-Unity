@@ -297,9 +297,9 @@ public class SmartContract : MonoBehaviour
 
 
 
-    private void GetTransactionInfo(string transactionHash)
+    public void GetTransactionInfo(string transactionHash,Web3 w3)
     {
-        var transaction = web3.Eth.Transactions.GetTransactionByHash.SendRequestAsync(transactionHash);
+        var transaction = w3.Eth.Transactions.GetTransactionByHash.SendRequestAsync(transactionHash);
         if (transaction.Exception == null)
         {
             Debug.Log("Sender Address: " + transaction.Result.From);
@@ -400,7 +400,6 @@ public class SmartContract : MonoBehaviour
         Debug.Log("Ethereum Block Number: "+blockNumber.Result.Value);
         Debug.Log("Ethereum Transaction Number: "+transactionNumber.Result.Transactions.Length);
         StartCoroutine(CheckEveryFiveSecondsBlockNumberAndTransactionNumber());
-
     }
 
 }

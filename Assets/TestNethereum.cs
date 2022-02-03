@@ -16,10 +16,11 @@ public class TestNethereum : MonoBehaviour
     {
 
         web3 = new Web3(url);
+        
 
         //BigInteger value = GetBalanceFromAddress("0x3a2cF9b278854dB8fbdE18BDEaa6b4E7d4441c7e");
-        StartCoroutine(SendEther("0xDaB1d372F6Af58A7dC4ba5Df9BDaa51466E983b5", "8f88e9b01459cc462e0a43238fa1222c5e32d3df886296873f83f195e9def778",
-            "0x546206872043462B42e7332170E6Bf6c44cC20ee", 90));
+        StartCoroutine(SendEther("0x3a2cF9b278854dB8fbdE18BDEaa6b4E7d4441c7e", "06f3e63691609ea25e027fc2f534e80a6ad5d406bfb1c9af7ae4dafabdd1c68d",
+            "0x546206872043462B42e7332170E6Bf6c44cC20ee", 10));
 
     }
 
@@ -49,6 +50,7 @@ public class TestNethereum : MonoBehaviour
 
     private IEnumerator SendEther(string fromAddress, string fromPrivateKey, string toAddress, decimal ether)
     {
+        SmartContract smartContract = new SmartContract();
         var chainId = web3.Eth.ChainId.SendRequestAsync();
         var gasPriceRequest = web3.Eth.GasPrice.SendRequestAsync();
         Debug.Log(chainId.Result.Value);
@@ -65,8 +67,11 @@ public class TestNethereum : MonoBehaviour
             Debug.Log(transaction.Exception.Message);
             yield break;
         }
-        var transactionHash = transaction.Result;
+        var transactionHash = transaction.Result; 
         Debug.Log("Transaction Success! Transaction Hash: " + transactionHash);
+        
+        smartContract.GetTransactionInfo(transactionHash,web3);
+       
 
         var fromBalance = GetBalanceFromAddress(fromAddress);
         if (fromBalance >= 0)
